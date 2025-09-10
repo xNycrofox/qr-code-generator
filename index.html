@@ -184,7 +184,7 @@
   // You can also set/override it at runtime via the "Admin‑Passwort setzen" button (stored in localStorage).
   const DEFAULT_ADMIN_PASS_SHA256 = "8d7604e6ce893ea5d5b4091c3940b05164d900dca90873d6d2fc3356d4918bab"; // sha256("admin") as hex (demo!)
   // Master secret: used to derive an AES‑GCM key. Change this to your own long random string BEFORE deploying.
-  const APP_MASTER_SECRET = "71997e1c9b1e99e2bd6204f8491cb48499f7b7f3d3f3da37abc2dfcef6b91e4e9d59316a2b546284f33b220afa99a021ca890f6b4bb0ea00c17b1acb11f21059";
+  const APP_MASTER_SECRET = "c6be483ed382a87dae3b484fb68840e2e43c247207ed147f00cebd02193aedf10f3cc1145141e4f06a9bff0925763d86d03b1e2b2feb1014384df26506f7715f";
   const KEY_DERIVE_SALT = new TextEncoder().encode("qrtool-v1-salt");
   const AES_GCM_TAGLEN = 128; // bits
 
