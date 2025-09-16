@@ -180,10 +180,7 @@
 
   <script>
   // ———————————————— Configuration ————————————————
-  // Replace ADMIN_PASS_SHA256 to your own hash (hex) of your admin password.
-  // You can also set/override it at runtime via the "Admin‑Passwort setzen" button (stored in localStorage).
-  const DEFAULT_ADMIN_PASS_SHA256 = "8d7604e6ce893ea5d5b4091c3940b05164d900dca90873d6d2fc3356d4918bab"; // sha256("admin") as hex (demo!)
-  // Master secret: used to derive an AES‑GCM key. Change this to your own long random string BEFORE deploying.
+  const DEFAULT_ADMIN_PASS_SHA256 = "8d7604e6ce893ea5d5b4091c3940b05164d900dca90873d6d2fc3356d4918bab";
   const APP_MASTER_SECRET = "c6be483ed382a87dae3b484fb68840e2e43c247207ed147f00cebd02193aedf10f3cc1145141e4f06a9bff0925763d86d03b1e2b2feb1014384df26506f7715f";
   const KEY_DERIVE_SALT = new TextEncoder().encode("qrtool-v1-salt");
   const AES_GCM_TAGLEN = 128; // bits
@@ -260,41 +257,7 @@
     return b64url(h) === pwObj.hash;
   }
 
-  // ———————————————— QR Code (embedded lib: QRCode.js by davidshimjs, MIT, trimmed) ————————————————
-  /*! QRCode.js v1.0.0 (trimmed) */
-  // Minimal embed to keep single-file; credits: https://github.com/davidshimjs/qrcodejs
-  (function(){
-    function QR8bitByte(data){this.mode=1;this.data=data;} QR8bitByte.prototype={getLength:function(){return this.data.length},write:function(buffer){for(var i=0;i<this.data.length;i++){buffer.put(this.data.charCodeAt(i),8)}}};
-    var QRUtil={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54]],
-    getBCHTypeInfo:function(data){var d=data<<10;while(QRUtil.getBCHDigit(d)-QRUtil.getBCHDigit(1335)>=0){d^=(1335<<(QRUtil.getBCHDigit(d)-QRUtil.getBCHDigit(1335)))}return (data<<10|d)&0x7fff},
-    getBCHDigit:function(data){var digit=0;while(data!=0){digit++;data>>>=1}return digit}};
-    var QRMath={glog:function(n){if(n<1)throw new Error('glog('+n+')');return QRMath.LOG_TABLE[n]},gexp:function(n){while(n<0)n+=255;while(n>=256)n-=255;return QRMath.EXP_TABLE[n]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)};for(var i=0;i<8;i++) QRMath.EXP_TABLE[i]=1<<i;for(var i=8;i<256;i++) QRMath.EXP_TABLE[i]=QRMath.EXP_TABLE[i-4]^QRMath.EXP_TABLE[i-5]^QRMath.EXP_TABLE[i-6]^QRMath.EXP_TABLE[i-8];for(var i=0;i<256;i++) QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]]=i;
-    function QRRSBlock(totalCount,dataCount){this.totalCount=totalCount;this.dataCount=dataCount}
-    QRRSBlock.getRSBlocks=function(typeNumber){var rs=[[ [19,16] ], [ [34,28] ], [ [55,44] ], [ [80,64] ], [ [108,86] ], [ [136,108] ], [ [156,124] ], [ [194,154] ], [ [232,182] ], [ [274,216] ]]; var d=rs[typeNumber-1];var list=[]; for(var i=0;i<d.length;i++){var dc=d[i]; list.push(new QRRSBlock(dc[0],dc[1]));} return list; };
-    function QRBitBuffer(){this.buffer=[];this.length=0} QRBitBuffer.prototype={get:function(i){return ((this.buffer[i>>3]>>(7-(i&7)))&1)==1},put:function(num,length){for(var i=0;i<length;i++){this.putBit(((num>>(length-i-1))&1)==1)}},putBit:function(bit){var bufIndex=this.length>>3; if(this.buffer.length<=bufIndex)this.buffer.push(0); if(bit)this.buffer[bufIndex]|=(0x80>>(this.length&7)); this.length++}};
-    function QRCodeModel(typeNumber){this.typeNumber=typeNumber; this.modules=null; this.moduleCount=0; this.dataList=[]}
-    QRCodeModel.prototype={addData:function(data){this.dataList.push(new QR8bitByte(data))},make:function(){this.moduleCount=this.typeNumber*4+17;this.modules=new Array(this.moduleCount);for(var row=0;row<this.moduleCount;row++){this.modules[row]=new Array(this.moduleCount);for(var col=0;col<this.moduleCount;col++){this.modules[row][col]=null}} this.setupPositionProbePattern(0,0);this.setupPositionProbePattern(this.moduleCount-7,0);this.setupPositionProbePattern(0,this.moduleCount-7);this.mapData(this.createData())},
-      setupPositionProbePattern:function(row,col){for(var r=-1;r<=7;r++){if(row+r<=-1||this.moduleCount<=row+r)continue;for(var c=-1;c<=7;c++){if(col+c<=-1||this.moduleCount<=col+c)continue; this.modules[row+r][col+c]=(r>=0&&r<=6&&(c==0||c==6))||(c>=0&&c<=6&&(r==0||r==6))||(r>=2&&r<=4&&c>=2&&c<=4)} }},
-      mapData:function(data){var inc=-1,row=this.moduleCount-1,bitIndex=7,byteIndex=0; for(var col=this.moduleCount-1; col>0; col-=2){if(col==6) col--; while(true){ for(var c=0;c<2;c++){ if(this.modules[row][col-c]==null){ var dark=false; if(byteIndex<data.length){ dark= ((data[byteIndex]>>>bitIndex)&1)==1; } this.modules[row][col-c]=dark; bitIndex--; if(bitIndex==-1){ byteIndex++; bitIndex=7; } } } row+=inc; if(row<0||this.moduleCount<=row){ row-=inc; inc=-inc; break; } } }},
-      createData:function(){var buffer=new QRBitBuffer(); for(var i=0;i<this.dataList.length;i++){var data=this.dataList[i]; buffer.put(4,4); buffer.put(data.getLength(),8); for(var j=0;j<data.getLength();j++) buffer.put(data.data.charCodeAt(j),8);} var rsBlocks=QRRSBlock.getRSBlocks(this.typeNumber); var totalDataCount=0; for(var i=0;i<rsBlocks.length;i++) totalDataCount+=rsBlocks[i].dataCount; while(buffer.length+4<=totalDataCount*8) buffer.put(0,1); while(buffer.length%8!=0) buffer.put(0,1); var bytes=new Array(totalDataCount); for(var i=0;i<bytes.length;i++) bytes[i]=0; for(var i=0;i<buffer.length; i++){ bytes[i>>3]|=((buffer.get(i)?1:0)<<(7-(i&7))); } return bytes; }
-    };
-    window.SimpleQRCode = function(el, text, size=240, dark='#000', light='#fff'){
-      var m = new QRCodeModel(4); m.addData(text); m.make(); var n=m.moduleCount; var c=document.createElement('canvas'); c.width=c.height=size; var ctx=c.getContext('2d'); var q=size/n; ctx.fillStyle=light; ctx.fillRect(0,0,size,size); ctx.fillStyle=dark; for(var r=0;r<n;r++){ for(var col=0;col<n;col++){ if(m.modules[r][col]) ctx.fillRect(Math.round(col*q), Math.round(r*q), Math.ceil(q), Math.ceil(q)); } } el.innerHTML=''; el.appendChild(c); return c; };
-
-    // SVG generator based on QRCodeModel (for downloads)
-    window.SimpleQRToSVG = function(text, size, dark, light){
-      var m = new QRCodeModel(4); m.addData(text); m.make();
-      var n = m.moduleCount; var q = size / n;
-      var svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'];
-      svg.push('<rect width="100%" height="100%" fill="'+(light||'#ffffff')+'"/>');
-      var y=0; for(var r=0;r<n;r++){ var x=0; for(var c=0;c<n;c++){ if(m.modules[r][c]) svg.push('<rect x="'+Math.round(x)+'" y="'+Math.round(y)+'" width="'+Math.ceil(q)+'" height="'+Math.ceil(q)+'" fill="'+(dark||'#000000')+'"/>'); x+=q; } y+=q; }
-      svg.push('</svg>');
-      return svg.join('');
-    };
-  })();
-
   // ———————————————— App Logic ————————————————
-  // Bindings for Admin Login view
   // Bindings for Admin Login view
   function setupAdminLoginBindings(){
     const btn = document.getElementById('btn-admin-login');
@@ -309,8 +272,6 @@
       const valid = (hashHex === getStoredAdminHash());
       if(valid){
         sessionStorage.setItem('admin_ok','1');
-        // ÄNDERUNG HIER: Statt location.replace, einfach den Hash ändern.
-        // Das löst den 'hashchange' Event aus, der dann init() aufruft.
         location.hash = '#/missioncontrol';
         init()
       }else{
@@ -320,7 +281,6 @@
     btn.onclick = doLogin;
     inp.onkeydown = (e)=>{ if(e.key==='Enter') doLogin(); };
   }
-  // Using local davidshimjs qrcode.min.js
 
   // Preview + Download helpers
   let lastLink = null; 
@@ -332,7 +292,6 @@
     const box = document.querySelector('#qrcode');
     if(!box) return;
     box.innerHTML = '';
-    // davidshimjs QRCode.js renders directly into container
     new window.QRCode(box, {
       text: link,
       width: 260,
@@ -347,7 +306,6 @@
     const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
   async function buildCanvas(link, size){
-    // Render in offscreen container and grab the <canvas>
     const tmp = document.createElement('div');
     tmp.style.position='absolute'; tmp.style.left='-9999px'; tmp.style.top='-9999px';
     document.body.appendChild(tmp);
@@ -393,22 +351,17 @@
     const hash = location.hash;
     const path = location.pathname.replace(/\/$/,'');
 
-    // Wenn jemand direkt /missioncontrol aufruft (z.B. http://localhost/qr/missioncontrol),
-    // rewrite auf Hash-Route, damit es auch statisch funktioniert:
     if (path.endsWith('/missioncontrol')) {
       const base = location.origin + location.pathname.replace(/\/missioncontrol\/?$/,'');
       history.replaceState(null, '', base + '/#/missioncontrol');
-      // Rufe init erneut auf, da sich der Hash geändert hat (wird durch 'hashchange' Event erledigt)
       return; 
     }
 
-    // Zuerst alle Hauptansichten ausblenden für einen sauberen Start
     hide('#view-admin-login');
     hide('#view-admin');
     hide('#view-password');
     hide('#view-landing');
 
-    // 1. Fall: Admin-Route
     if (hash === '#/missioncontrol') {
       const loggedIn = sessionStorage.getItem('admin_ok') === '1';
       if (loggedIn) {
@@ -418,10 +371,8 @@
         show('#view-admin-login');
         setupAdminLoginBindings();
       }
-    // 2. Fall: QR-Link wird geöffnet
     } else if (p) {
       handleOpen(p);
-    // 3. Fall: Standard-Ansicht (Landing-Page)
     } else {
       show('#view-landing');
     }
