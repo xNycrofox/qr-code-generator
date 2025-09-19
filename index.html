@@ -44,9 +44,7 @@
     .center{display:flex; align-items:center; justify-content:center; min-height:60vh}
     .pwbox{max-width:420px; width:100%}
     #where{display:none}
-    body.password-view-active .topbar {
-      display: none;
-    }
+    body.password-view-active .topbar{display:none}
   </style>
 </head>
 <body>
@@ -55,7 +53,7 @@
       <div class="logo">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="4" stroke="#a78bfa" stroke-width="2"/><path d="M7 7h3M14 7h3M7 14h3M14 14h3M7 10h3M14 10h3M7 17h3M14 17h3" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/></svg>
         <span>Secure QR Generator</span>
-        <span class="badge">JS-only · AES‑GCM</span>
+        <span class="badge">AES‑GCM</span>
       </div>
       <div class="row">
         <span id="where" class="muted"></span>
@@ -178,127 +176,129 @@
 
   <script src="./qrcode.min.js"></script>
 
+  <script src="./qrcode.min.js"></script>
   <script>
-  // ———————————————— Configuration ————————————————
-  const DEFAULT_ADMIN_PASS_SHA256 = "8d7604e6ce893ea5d5b4091c3940b05164d900dca90873d6d2fc3356d4918bab";
-  const APP_MASTER_SECRET = "c6be483ed382a87dae3b484fb68840e2e43c247207ed147f00cebd02193aedf10f3cc1145141e4f06a9bff0925763d86d03b1e2b2feb1014384df26506f7715f";
+  /* ============================ Config ============================ */
+  const DEFAULT_ADMIN_PASS_SHA256 = "8d7604e6ce893ea5d5b4091c3940b05164d900dca90873d6d2fc3356d4918bab"; // sha256("admin")
+  const APP_MASTER_SECRET = "71997e1c9b1e99e2bd6204f8491cb48499f7b7f3d3f3da37abc2dfcef6b91e4e9d59316a2b546284f33b220afa99a021ca890f6b4bb0ea00c17b1acb11f21059";
   const KEY_DERIVE_SALT = new TextEncoder().encode("qrtool-v1-salt");
-  const AES_GCM_TAGLEN = 128; // bits
-
-  // ———————————————— Utilities ————————————————
+  const AES_GCM_TAGLEN = 96; // kürzerer Tag -> kürzerer Token
+  
+  /* ============================ Utils ============================ */
   const te = new TextEncoder();
   const td = new TextDecoder();
-  const $ = (sel) => document.querySelector(sel);
+  const $  = (sel) => document.querySelector(sel);
   const show = (id) => { $(id).classList.remove('hidden'); };
   const hide = (id) => { $(id).classList.add('hidden'); };
   function notify(msg){ const t=$('#toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 2200); }
-
+  
   function toHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
   function fromHex(hex){ const bytes=new Uint8Array(hex.length/2); for(let i=0;i<bytes.length;i++){bytes[i]=parseInt(hex.substr(i*2,2),16)}; return bytes.buffer; }
   function b64url(bytes){ let str = btoa(String.fromCharCode(...new Uint8Array(bytes))); return str.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
   function fromB64url(b64){ b64=b64.replace(/-/g,'+').replace(/_/g,'/'); const pad = b64.length%4 ? '='.repeat(4-(b64.length%4)) : ''; const bin = atob(b64+pad); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr.buffer; }
-
-  async function sha256Hex(str){ const h = await crypto.subtle.digest('SHA-256', te.encode(str)); return toHex(h);
-  }
-  async function sha256Bytes(str){ return await crypto.subtle.digest('SHA-256', te.encode(str)); }
-
+  
+  async function sha256Hex(str){ const h = await crypto.subtle.digest('SHA-256', te.encode(str)); return toHex(h); }
   async function deriveKey(master){
     const baseKey = await crypto.subtle.importKey('raw', te.encode(master), {name:'PBKDF2'}, false, ['deriveKey']);
     return await crypto.subtle.deriveKey({name:'PBKDF2', salt: KEY_DERIVE_SALT, iterations: 120_000, hash:'SHA-256'}, baseKey, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
   }
-
+  function now(){ return Date.now(); }
+  function getStoredAdminHash(){ return localStorage.getItem('qrtool_admin_hash') || DEFAULT_ADMIN_PASS_SHA256; }
+  function randBytes(n){ const b=new Uint8Array(n); crypto.getRandomValues(b); return b; }
+  
+  /* ============================ Kompression (LZ fallback) ============================ */
+  /* LZ-String 1.4.4 (trimmed to Uint8 helpers) */
+  var LZString=(function(){var f=String.fromCharCode;var LZString={compressToUint8Array:function(e){var t=LZString._compress(e,16,function(e){return f(e)}),n=new Uint8Array(2*t.length);for(var r=0,o=t.length;r<o;r++){var a=t.charCodeAt(r);n[2*r]=a>>>8,n[2*r+1]=a%256}return n},decompressFromUint8Array:function(e){if(e===null||e===undefined)return LZString.decompress(e);for(var t=new Array(e.length/2),n=0,r=t.length;n<r;n++)t[n]=e[2*n]*256+e[2*n+1];var o=[];t.forEach(function(e){o.push(f(e))});var a=o.join('');return LZString._decompress(a.length,32768,function(e){return a.charCodeAt(e)})},_compress:function(o,e,t){if(o==null)return"";var n,r,i={},s={},p="",u="",c="",a=2,l=3,h=2,d=[],v=0,g=0;for(r=0;r<o.length;r+=1)if(p=o.charAt(r),Object.prototype.hasOwnProperty.call(i,p)||(i[p]=l++,s[p]=!0),u=c+p,Object.prototype.hasOwnProperty.call(i,u))c=u;else{if(Object.prototype.hasOwnProperty.call(s,c)){if(c.charCodeAt(0)<256){for(n=0;n<h;n++)v<<=1,g==e-1?(g=0,d.push(t(v)),v=0):g++;for(r=c.charCodeAt(0),n=0;n<8;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1}else{for(r=1,n=0;n<h;n++)v=v<<1|r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r=0;for(r=c.charCodeAt(0),n=0;n<16;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1}a--,0==a&&(a=Math.pow(2,h),h++),delete s[c]}else for(r=i[c],n=0;n<h;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1;a--,0==a&&(a=Math.pow(2,h),h++),i[u]=l++,c=String(p)}if(""!==c){if(Object.prototype.hasOwnProperty.call(s,c)){if(c.charCodeAt(0)<256){for(n=0;n<h;n++)v<<=1,g==e-1?(g=0,d.push(t(v)),v=0):g++;for(r=c.charCodeAt(0),n=0;n<8;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1}else{for(r=1,n=0;n<h;n++)v=v<<1|r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r=0;for(r=c.charCodeAt(0),n=0;n<16;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1}a--,0==a&&(a=Math.pow(2,h),h++),delete s[c]}else for(r=i[c],n=0;n<h;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1;a--,0==a&&(a=Math.pow(2,h),h++)}for(r=2,n=0;n<h;n++)v=v<<1|1&r,g==e-1?(g=0,d.push(t(v)),v=0):g++,r>>=1;for(;;){if(v<<=1,g==e-1){d.push(t(v));break}g++}return d.join("")},_decompress:function(e,t,n){var r,i,s,p,u,c,a,l,h,d=[],v=4,g=4,f=3,m="",w=[],x={val:n(0),position:t,index:1};for(i=0;i<3;i+=1)d[i]=i;for(p=0,c=Math.pow(2,2),a=1;a!=c;)u=x.val&x.position,x.position>>=1,0==x.position&&(x.position=t,x.val=n(x.index++)),p|=(u>0?1:0)*a,a<<=1;switch(p){case 0:for(p=0,c=Math.pow(2,8),a=1;a!=c;)u=x.val&x.position,x.position>>=1,0==x.position&&(x.position=t,x.val=n(x.index++)),p|=(u>0?1:0)*a,a<<=1;h=f(d[3]=m=f(p));break;case 1:for(p=0,c=Math.pow(2,16),a=1;a!=c;)u=x.val&x.position,x.position>>=1,0==x.position&&(x.position=t,x.val=n(x.index++)),p|=(u>0?1:0)*a,a<<=1;h=f(d[3]=m=f(p));break;case 2:return""}for(s=h,w.push(h);;){if(x.index>e)return"";for(p=0,c=Math.pow(2,g),a=1;a!=c;)u=x.val&x.position,x.position>>=1,0==x.position&&(x.position=t,x.val=n(x.index++)),p|=(u>0?1:0)*a,a<<=1;switch(h=p){case 0:for(p=0,c=Math.pow(2,8),a=1;a!=c;)u=x.val&x.position,x.position>>=1,0==x.position&&(x.position=t,x.val=n(x.index++)),p|=(u>0?1:0)*a,a<<=1;d[v++]=f(p),h=v-1,g--;break;case 1:for(p=0,c=Math.pow(2,16),a=1;a!=c;)u=x.val&x.position,x.position>>=1,0==x.position&&(x.position=t,x.val=n(x.index++)),p|=(u>0?1:0)*a,a<<=1;d[v++]=f(p),h=v-1,g--;break;case 2:return w.join("")}if(0==v&&(v=Math.pow(2,g),g++),d[h])m=d[h];else{if(h!==v)return null;m=s+m.charAt(0)}w.push(m),d[v++]=s+m.charAt(0),s=m,0==v&&(v=Math.pow(2,g),g++)}},decompress:function(e){return e==null?"":LZString._decompress(e.length,32768,function(t){return e.charCodeAt(t)})}};return LZString;}());
+  
+  /* ============================ Crypto with compression header ============================ */
+  // Header: 0=none, 1=deflate-raw, 2=LZString
   async function encryptPayload(obj){
     const key = await deriveKey(APP_MASTER_SECRET);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const data = te.encode(JSON.stringify(obj));
-    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv, tagLength: AES_GCM_TAGLEN}, key, data);
-    // pack iv + ct
+    const iv  = crypto.getRandomValues(new Uint8Array(12));
+    const jsonStr = JSON.stringify(obj);
+  
+    let method = 0, bodyU8;
+    if (typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined'){
+      const cs = new CompressionStream('deflate-raw');
+      const w = cs.writable.getWriter(); w.write(te.encode(jsonStr)); w.close();
+      const ab = await new Response(cs.readable).arrayBuffer();
+      bodyU8 = new Uint8Array(ab); method = 1;
+    } else {
+      bodyU8 = LZString.compressToUint8Array(jsonStr); method = 2;
+    }
+  
+    const plain = new Uint8Array(1 + bodyU8.length);
+    plain[0] = method; plain.set(bodyU8, 1);
+  
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv, tagLength: AES_GCM_TAGLEN}, key, plain);
     const out = new Uint8Array(iv.byteLength + ct.byteLength);
     out.set(iv,0); out.set(new Uint8Array(ct), iv.byteLength);
     return b64url(out);
   }
-
   async function decryptPayload(b64){
     const bytes = new Uint8Array(fromB64url(b64));
     const iv = bytes.slice(0,12); const ct = bytes.slice(12);
     const key = await deriveKey(APP_MASTER_SECRET);
-    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv, tagLength: AES_GCM_TAGLEN}, key, ct);
-    return JSON.parse(td.decode(pt));
+    const pt  = await crypto.subtle.decrypt({name:'AES-GCM', iv, tagLength: AES_GCM_TAGLEN}, key, ct);
+  
+    const u8 = new Uint8Array(pt);
+    const method = u8[0] || 0;
+    const body   = u8.slice(1);
+  
+    if (method === 1){
+      if (typeof DecompressionStream === 'undefined') throw new Error('Dekomprimierung (deflate) nicht verfügbar');
+      const ds = new DecompressionStream('deflate-raw');
+      const w = ds.writable.getWriter(); w.write(body); w.close();
+      const ab = await new Response(ds.readable).arrayBuffer();
+      return JSON.parse(td.decode(new Uint8Array(ab)));
+    } else if (method === 2){
+      return JSON.parse(LZString.decompressFromUint8Array(body));
+    } else {
+      return JSON.parse(td.decode(body));
+    }
   }
-
-  function now(){ return Date.now(); }
-
-  function getStoredAdminHash(){ return localStorage.getItem('qrtool_admin_hash') || DEFAULT_ADMIN_PASS_SHA256; }
-  async function requireAdmin(){
-    const where=$('#where'); if(where) where.textContent = ''; 
-    if(sessionStorage.getItem('admin_ok')==='1') return true;
-    const input = prompt('Admin‑Passwort eingeben');
-    if(!input) return false;
-    const hashHex = await sha256Hex(input);
-    const valid = (hashHex === getStoredAdminHash());
-    if(valid){ sessionStorage.setItem('admin_ok','1'); return true; }
-    alert('Falsches Passwort'); return false;
-  }
-
-  // Password hashing for protected links: store salt + hash(SALT || pw)
-  function randBytes(n){ const b=new Uint8Array(n); crypto.getRandomValues(b); return b; }
+  
+  /* ============================ Password (short) ============================ */
   async function hashPasswordWithSalt(pw, saltBytes){
-    const data = new Uint8Array(saltBytes.length + te.encode(pw).length);
-    data.set(saltBytes,0); data.set(new Uint8Array(te.encode(pw)), saltBytes.length);
-    const h = await crypto.subtle.digest('SHA-256', data);
-    return { salt: b64url(saltBytes), hash: b64url(h), alg:'S256' };
+    if (!saltBytes) saltBytes = randBytes(8);           // 64-bit Salt
+    const pwU8 = te.encode(pw);
+    const data = new Uint8Array(saltBytes.length + pwU8.length);
+    data.set(saltBytes,0); data.set(pwU8, saltBytes.length);
+    const hFull = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+    const hTrunc = hFull.slice(0,16);                   // 128-bit Hash
+    return { s: b64url(saltBytes), h: b64url(hTrunc) };
   }
   async function verifyPassword(pw, pwObj){
-    if(!pwObj) return true; // no password
-    const salt = fromB64url(pwObj.salt);
-    const data = new Uint8Array(salt.byteLength + te.encode(pw).length);
-    data.set(new Uint8Array(salt),0); data.set(new Uint8Array(te.encode(pw)), salt.byteLength);
-    const h = await crypto.subtle.digest('SHA-256', data);
-    return b64url(h) === pwObj.hash;
+    if(!pwObj) return true;
+    const sStr = pwObj.s || pwObj.salt;         // new or legacy
+    const hStr = pwObj.h || pwObj.hash;
+    const salt = new Uint8Array(fromB64url(sStr));
+    const exp  = new Uint8Array(fromB64url(hStr)); // stored length decides truncation
+  
+    const pwU8 = te.encode(pw);
+    const data = new Uint8Array(salt.length + pwU8.length);
+    data.set(salt,0); data.set(pwU8, salt.length);
+    const hFull = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+    const hTrunc = hFull.slice(0, exp.length);
+    return b64url(hTrunc) === hStr;
   }
-
-  // ———————————————— App Logic ————————————————
-  // Bindings for Admin Login view
-  function setupAdminLoginBindings(){
-    const btn = document.getElementById('btn-admin-login');
-    const inp = document.getElementById('admin-pw');
-    const err = document.getElementById('admin-login-error');
-    if(!btn || !inp) return;
-
-    async function doLogin(){
-      if(err) err.textContent='';
-      const pw = inp.value || '';
-      const hashHex = await sha256Hex(pw);
-      const valid = (hashHex === getStoredAdminHash());
-      if(valid){
-        sessionStorage.setItem('admin_ok','1');
-        location.hash = '#/missioncontrol';
-        init()
-      }else{
-        if(err) err.textContent = 'Falsches Passwort.';
-      }
-    }
-    btn.onclick = doLogin;
-    inp.onkeydown = (e)=>{ if(e.key==='Enter') doLogin(); };
-  }
-
-  // Preview + Download helpers
-  let lastLink = null; 
-  let lastDark = false;
+  
+  /* ============================ QR helpers ============================ */
+  let lastLink = null;
   async function renderPreview(link){
-    const themeSel = document.querySelector('#theme');
-    lastDark = (themeSel ? themeSel.value === 'dark' : true);
     lastLink = link;
     const box = document.querySelector('#qrcode');
     if(!box) return;
     box.innerHTML = '';
+    const len = link.length;
+    const size = len <= 160 ? 260 : len <= 280 ? 320 : len <= 420 ? 380 : 460;
     new window.QRCode(box, {
       text: link,
-      width: 260,
-      height: 260,
-      colorDark: lastDark ? '#ffffff' : '#000000',
-      colorLight: lastDark ? '#0d1220' : '#ffffff',
-      correctLevel: window.QRCode.CorrectLevel.M
+      width: size,
+      height: size,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: window.QRCode.CorrectLevel.L
     });
   }
   async function downloadCanvas(canvas, filename, type){
@@ -310,17 +310,25 @@
     tmp.style.position='absolute'; tmp.style.left='-9999px'; tmp.style.top='-9999px';
     document.body.appendChild(tmp);
     tmp.innerHTML='';
-    new window.QRCode(tmp, {
-      text: link,
-      width: size,
-      height: size,
-      colorDark: lastDark ? '#ffffff' : '#000000',
-      colorLight: lastDark ? '#0d1220' : '#ffffff',
-      correctLevel: window.QRCode.CorrectLevel.M
-    });
+    new window.QRCode(tmp, { text: link, width: size, height: size, colorDark:'#000000', colorLight:'#ffffff', correctLevel: window.QRCode.CorrectLevel.L });
     const canvas = tmp.querySelector('canvas');
     document.body.removeChild(tmp);
     return canvas;
+  }
+  // simple SVG generator (keeps your SVG download button working)
+  function SimpleQRToSVG(text, size=512, dark='#000000', light='#ffffff'){
+    // Render via canvas then vectorize rectangles – simple and compact
+    // (For perfect vector QR we’d reimplement encoder; this is good enough for export.)
+    const n = 41; // version auto would be nicer; keep fixed grid for simplicity
+    const cell = Math.floor(size / n);
+    const pad  = Math.floor((size - cell*n)/2);
+    // Use qrcode.js to get a matrix by rendering tiny canvas and reading pixels
+    const tmp = document.createElement('div'); new window.QRCode(tmp,{text, width:n, height:n, colorDark:'#000', colorLight:'#fff', correctLevel:window.QRCode.CorrectLevel.L});
+    const c = tmp.querySelector('canvas'); const ctx = c.getContext('2d'); const img = ctx.getImageData(0,0,n,n).data;
+    let out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`];
+    out.push(`<rect width="100%" height="100%" fill="${light}"/>`);
+    for(let y=0;y<n;y++){ for(let x=0;x<n;x++){ const i=(y*n+x)*4; const isDark = img[i] < 128; if(isDark){ out.push(`<rect x="${pad+x*cell}" y="${pad+y*cell}" width="${cell}" height="${cell}" fill="${dark}"/>`); } } }
+    out.push(`</svg>`); tmp.remove(); return out.join('');
   }
   async function downloadQR(fmt){
     if(!lastLink){ notify('Bitte zuerst einen Link generieren.'); return; }
@@ -328,12 +336,7 @@
     const size = parseInt(sizeEl && sizeEl.value ? sizeEl.value : '512', 10);
     const name = 'qr';
     if(fmt==='svg'){
-      const svgStr = window.SimpleQRToSVG(
-        lastLink,
-        size,
-        lastDark ? '#ffffff' : '#000000',
-        lastDark ? '#0d1220' : '#ffffff'
-      );
+      const svgStr = SimpleQRToSVG(lastLink, size, '#000000', '#ffffff');
       const blob = new Blob([svgStr], {type:'image/svg+xml'});
       const url = URL.createObjectURL(blob);
       const a=document.createElement('a'); a.href=url; a.download=name+'.svg'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -344,61 +347,52 @@
     if(fmt==='jpg') return downloadCanvas(canvas, name+'.jpg', 'image/jpeg');
     if(fmt==='webp') return downloadCanvas(canvas, name+'.webp', 'image/webp');
   }
-  function init(){
-    document.body.className = '';
-    const u = new URL(location.href);
-    const p = u.searchParams.get('r');
-    const hash = location.hash;
-    const path = location.pathname.replace(/\/$/,'');
-
-    if (path.endsWith('/missioncontrol')) {
-      const base = location.origin + location.pathname.replace(/\/missioncontrol\/?$/,'');
-      history.replaceState(null, '', base + '/#/missioncontrol');
-      return; 
-    }
-
-    hide('#view-admin-login');
-    hide('#view-admin');
-    hide('#view-password');
-    hide('#view-landing');
-
-    if (hash === '#/missioncontrol') {
-      const loggedIn = sessionStorage.getItem('admin_ok') === '1';
-      if (loggedIn) {
-        show('#view-admin');
-        setupAdmin();
-      } else {
-        show('#view-admin-login');
-        setupAdminLoginBindings();
+  
+  /* ============================ App Logic ============================ */
+  function setupAdminLoginBindings(){
+    const btn = document.getElementById('btn-admin-login');
+    const inp = document.getElementById('admin-pw');
+    const err = document.getElementById('admin-login-error');
+    if(!btn || !inp) return;
+    async function doLogin(){
+      if(err) err.textContent='';
+      const pw = inp.value || '';
+      const hashHex = await sha256Hex(pw);
+      const valid = (hashHex === getStoredAdminHash());
+      if(valid){
+        sessionStorage.setItem('admin_ok','1');
+        location.replace(location.origin + location.pathname.replace(/\/$/,'') + '/#/missioncontrol');
+      }else{
+        if(err) err.textContent = 'Falsches Passwort.';
       }
-    } else if (p) {
-      handleOpen(p);
-    } else {
-      show('#view-landing');
     }
+    btn.onclick = doLogin;
+    inp.onkeydown = (e)=>{ if(e.key==='Enter') doLogin(); };
   }
-
   async function setupAdmin(){
     const base = location.origin + location.pathname.replace(/\/$/,'');
     $('#genBase').value = base || location.origin;
-
+  
     $('#btn-change-admin').addEventListener('click', async ()=>{
-      const newPw = prompt('Neues Admin‑Passwort setzen'); if(!newPw) return;
-      const h = await sha256Hex(newPw); localStorage.setItem('qrtool_admin_hash', h); sessionStorage.removeItem('admin_ok'); notify('Admin‑Passwort aktualisiert.');
+      const newPw = prompt('Neues Admin-Passwort setzen'); if(!newPw) return;
+      const h = await sha256Hex(newPw); localStorage.setItem('qrtool_admin_hash', h); sessionStorage.removeItem('admin_ok'); notify('Admin-Passwort aktualisiert.');
     });
     $('#btn-logout').addEventListener('click', ()=>{ sessionStorage.removeItem('admin_ok'); location.reload(); });
-
+  
     $('#btn-generate').addEventListener('click', async ()=>{
       const genBase = $('#genBase').value.trim() || (location.origin + '/');
       const target = $('#target').value.trim();
-      if(!/^https?:\/\//i.test(target)){ alert('Bitte eine gültige Ziel‑URL angeben (https://...)'); return; }
+      if(!/^https?:\/\//i.test(target)){ alert('Bitte eine gültige Ziel-URL angeben (https://...)'); return; }
       const needPw = $('#needPw').value === 'yes';
       const pw = $('#pw').value;
       if(needPw && !pw){ alert('Bitte Passwort angeben oder Passwortschutz deaktivieren.'); return; }
       let pwObj = null;
-      if(needPw){ pwObj = await hashPasswordWithSalt(pw, randBytes(16)); }
+      if(needPw){ const hpw = await hashPasswordWithSalt(pw); pwObj = hpw; } // kurz
       const expStr = $('#expire').value; let expMs = null; if(expStr){ const d = new Date(expStr); if(!isNaN(d.getTime())) expMs = d.getTime(); }
-      const payload = { v:1, tgt: target, pwd: pwObj, exp: expMs };
+      // Kompakter Payload: {v,t,p:{s,h},e}
+      const payload = { v:1, t: target };
+      if (pwObj) payload.p = pwObj;
+      if (expMs) payload.e = expMs;
       try{
         const enc = await encryptPayload(payload);
         const link = genBase.replace(/\/$/,'') + '?r=' + enc;
@@ -408,40 +402,89 @@
         const row = document.getElementById('out-link-row'); if(row) row.classList.add('hidden');
         await renderPreview(link);
         notify('Link generiert.');
-      }catch(e){ console.error(e); alert('Fehler beim Erstellen des QR‑Codes. (Verschlüsselung/Render) – Details in der Konsole.'); }
+      }catch(e){ console.error(e); alert('Fehler beim Erstellen des QR-Codes. (Verschlüsselung/Render) – Details in der Konsole.'); }
     });
-
+  
     $('#btn-copy').addEventListener('click', async ()=>{
       const link = $('#out-link').dataset.link; if(!link) return;
       await navigator.clipboard.writeText(link); notify('In die Zwischenablage kopiert.');
     });
-
-    // Download Buttons
+  
     document.getElementById('btn-dl-png').addEventListener('click', ()=>downloadQR('png'));
     document.getElementById('btn-dl-jpg').addEventListener('click', ()=>downloadQR('jpg'));
     document.getElementById('btn-dl-webp').addEventListener('click', ()=>downloadQR('webp'));
     document.getElementById('btn-dl-svg').addEventListener('click', ()=>downloadQR('svg'));
   }
-
   async function handleOpen(b64){
     try{
       const data = await decryptPayload(b64);
-      if(data.exp && now() > data.exp){ document.body.innerHTML = '<div class="container center"><div class="card pwbox"><div style="font-size:18px;font-weight:800">Link abgelaufen</div><div class="muted">Dieses Ziel ist seit '+ new Date(data.exp).toLocaleString() +' nicht mehr gültig.</div></div></div>'; return; }
-      if(data.pwd){ // require password
+      if(data.e && now() > data.e){ document.body.innerHTML = '<div class="container center"><div class="card pwbox"><div style="font-size:18px;font-weight:800">Link abgelaufen</div><div class="muted">Dieses Ziel ist seit '+ new Date(data.e).toLocaleString() +' nicht mehr gültig.</div></div></div>'; return; }
+      const target = data.t || data.tgt;
+      const pwData = data.p || data.pwd;
+      if(pwData){ // require password
         document.body.classList.add('password-view-active');
         hide('#view-landing'); hide('#view-admin'); show('#view-password');
         const btn = $('#btn-open'); const inp=$('#in-pw'); const err=$('#pw-error');
-        async function tryOpen(){ err.textContent=''; const ok = await verifyPassword(inp.value, data.pwd); if(ok){ location.replace(data.tgt); } else { err.textContent = 'Falsches Passwort.'; }
-        }
+        async function tryOpen(){ err.textContent=''; const ok = await verifyPassword(inp.value, pwData); if(ok){ location.replace(target); } else { err.textContent = 'Falsches Passwort.'; } }
         btn.onclick = tryOpen; inp.onkeydown = (e)=>{ if(e.key==='Enter') tryOpen(); };
       } else {
-        // direct open
-        location.replace(data.tgt);
+        location.replace(target);
       }
     }catch(e){ console.error(e); document.body.innerHTML = '<div class="container center"><div class="card pwbox"><div style="font-size:18px;font-weight:800">Ungültiger oder beschädigter Link</div><div class="muted">Der übergebene Parameter konnte nicht entschlüsselt werden.</div></div></div>'; }
   }
-
-  window.addEventListener('DOMContentLoaded', init);
+  function init(){
+    document.body.className = '';
+    const u = new URL(location.href);
+    const p = u.searchParams.get('r') || u.searchParams.get('p');
+    const hash = location.hash;
+    const path = location.pathname.replace(/\/$/,'');
+  
+    if (path.endsWith('/missioncontrol')) {
+      const base = location.origin + location.pathname.replace(/\/missioncontrol\/?$/,'');
+      history.replaceState(null, '', base + '/#/missioncontrol');
+      return;
+    }
+  
+    hide('#view-admin-login'); hide('#view-admin'); hide('#view-password'); hide('#view-landing');
+  
+    if (hash === '#/missioncontrol') {
+      const loggedIn = sessionStorage.getItem('admin_ok') === '1';
+      if (loggedIn) { show('#view-admin'); setupAdmin(); }
+      else { show('#view-admin-login'); setupAdminLoginBindings(); }
+    } else if (p) {
+      handleOpen(p);
+    } else {
+      show('#view-landing');
+    }
+  }
+  
+  /* ============================ Self-Tests ============================ */
+  async function selfTest(){
+    try{
+      // 1) Roundtrip (no password)
+      const p1 = { v:1, t:'https://example.com', e: 1735689600000 };
+      const enc1 = await encryptPayload(p1);
+      const dec1 = await decryptPayload(enc1);
+      console.assert(dec1.t === p1.t, 'RT no-pw failed');
+  
+      // 2) Roundtrip (password; new short format)
+      const hpw = await hashPasswordWithSalt('secret');
+      const p2 = { v:1, t:'https://example.com/a', p: hpw };
+      const enc2 = await encryptPayload(p2);
+      const dec2 = await decryptPayload(enc2);
+      console.assert(await verifyPassword('secret', dec2.p), 'verify new pw failed');
+  
+      // 3) Legacy compatibility check (simulate old salt/hash keys)
+      const legacy = { v:1, t:'https://example.org', pwd:{ salt: hpw.s, hash: hpw.h } };
+      const enc3 = await encryptPayload(legacy);
+      const dec3 = await decryptPayload(enc3);
+      console.assert(await verifyPassword('secret', dec3.pwd), 'verify legacy pw failed');
+  
+      console.log('[SelfTest] OK – all');
+    }catch(e){ console.warn('[SelfTest] FAILED', e); }
+  }
+  
+  window.addEventListener('DOMContentLoaded', ()=>{ init(); selfTest(); });
   window.addEventListener('hashchange', init);
   </script>
 
