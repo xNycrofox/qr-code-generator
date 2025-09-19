@@ -362,6 +362,7 @@
       if(valid){
         sessionStorage.setItem('admin_ok','1');
         location.replace(location.origin + location.pathname.replace(/\/$/,'') + '/#/missioncontrol');
+        init();
       }else{
         if(err) err.textContent = 'Falsches Passwort.';
       }
