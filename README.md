@@ -27,7 +27,7 @@ Ein schlanker, statischer QR‑Code‑Generator mit geschützten Weiterleitungs�
 2. Datei öffnen und im Kopf des Skripts folgende Werte anpassen:
 
    * `APP_MASTER_SECRET` → langer zufälliger String (mind. 64 hex Zeichen) - Generieren z.B. über https://jwtsecrets.com/#generator mit 512 Bits.
-   * (Optional) `DEFAULT_ADMIN_PASS_SHA256` → SHA‑256 Hash des gewünschten Admin‑Passworts.
+   * (Optional) `DEFAULT_ADMIN_PASS_SHA256` → SHA‑256 Hash des gewünschten Admin‑Passworts - Generator: https://emn178.github.io/online-tools/sha256.html
 3. Seite aufrufen und `/#/missioncontrol` öffnen.
 4. Im Admin‑Bereich ggf. „**Admin‑Passwort setzen**“ verwenden um ein Wunschpasswort festzulegen -> danach neu einloggen. ABER: Das gilt nur lokal und nur solange der Local Storage Eintrag existiert!
 5. Ziel‑URL eintragen, optional Passwort/Ablauf, **„Link & QR generieren“** klicken.
